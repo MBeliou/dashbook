@@ -92,6 +92,9 @@ class _DashbookState extends State<Dashbook> {
   CurrentView? _currentView;
   late ThemeData _currentTheme;
 
+  bool showStories = true;
+  bool showProperties = false;
+
   @override
   void initState() {
     super.initState();
@@ -119,6 +122,18 @@ class _DashbookState extends State<Dashbook> {
 
   bool _hasProperties() => _currentChapter?.ctx.properties.isNotEmpty ?? false;
 
+  void toggleShowStories() {
+    setState(() {
+      showStories = !showStories;
+    });
+  }
+
+  void toggleShowProperties() {
+    setState(() {
+      showProperties = !showProperties;
+    });
+  }
+
   Future<void> _launchURL(String url) async {
     if (await url_launcher.canLaunch(url)) {
       await url_launcher.launch(url);
@@ -139,55 +154,93 @@ class _DashbookState extends State<Dashbook> {
           final chapterWidget = _currentChapter?.widget();
           return Scaffold(
             body: SafeArea(
-              child: Stack(
+              child: Row(
                 children: [
-                  if (_currentChapter != null)
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: !widget.usePreviewSafeArea
-                              ? null
-                              : Border(
-                                  left: BorderSide(
-                                      color: Theme.of(context).cardColor,
-                                      width: iconSize(context) * 2),
-                                  right: BorderSide(
-                                      color: Theme.of(context).cardColor,
-                                      width: iconSize(context) * 2),
-                                ),
-                        ),
-                        child: chapterWidget,
+                  if (showStories)
+                    Container(
+                      key: ValueKey(1),
+                      width: 400,
+                      child: StoriesList(
+                        stories: widget.stories,
+                        selectedChapter: _currentChapter,
+                        onCancel: () => setState(() {
+                          //print("Cancelling");
+                          toggleShowStories();
+                          _currentView = null;
+                        }),
+                        onSelectChapter: (chapter) {
+                          setState(() {
+                            _currentChapter = chapter;
+                            // _currentView = null;
+                          });
+                        },
                       ),
-                      key: Key(_currentChapter!.id),
                     ),
-                  Positioned(
-                    right: 10,
-                    top: 0,
-                    bottom: 0,
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        if (_currentChapter != null)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: !widget.usePreviewSafeArea
+                                    ? null
+                                    : Border(
+                                        left: BorderSide(
+                                            color: Theme.of(context).cardColor,
+                                            width: iconSize(context) * 2),
+                                        right: BorderSide(
+                                            color: Theme.of(context).cardColor,
+                                            width: iconSize(context) * 2),
+                                      ),
+                              ),
+                              child: chapterWidget,
+                            ),
+                            key: Key(_currentChapter!.id),
+                          ),
+                        if (!showStories)
+                          Container(
+                            key: ValueKey(2),
+                            width: 100,
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: IconButton(
+                                  onPressed: () => toggleShowStories(),
+                                  icon: Icon(Icons.open_in_full)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: _DashbookRightIconList(
                       children: [
                         if (_hasProperties())
                           DashbookIcon(
-                            tooltip: 'Properties panel',
-                            icon: Icons.mode_edit,
-                            onClick: () => setState(
-                                () => _currentView = CurrentView.PROPERTIES),
-                          ),
-                        if (_currentChapter?.codeLink != null)
+                              tooltip: 'Properties panel',
+                              icon:
+                                  showProperties ? Icons.close : Icons.mode_edit,
+                              onClick: () => toggleShowProperties()),
+                        if (_currentChapter?.codeLink != null) ...[
+                          SizedBox(height: 4.0),
                           DashbookIcon(
                             tooltip: 'See code',
                             icon: Icons.code,
-                            onClick: () =>
-                                _launchURL(_currentChapter!.codeLink!),
+                            onClick: () => _launchURL(_currentChapter!.codeLink!),
                           ),
-                        if (widget.dualTheme != null)
+                        ],
+                        if (widget.dualTheme != null) ...[
+                          SizedBox(height: 4.0),
                           _DashbookDualThemeIcon(
                             dualTheme: widget.dualTheme!,
                             currentTheme: _currentTheme,
                             onChangeTheme: (theme) =>
                                 setState(() => _currentTheme = theme),
                           ),
-                        if (widget.multiTheme != null)
+                        ],
+                        if (widget.multiTheme != null) ...[
+                          SizedBox(height: 4.0),
                           DashbookIcon(
                             tooltip: 'Choose theme',
                             icon: Icons.palette,
@@ -214,46 +267,18 @@ class _DashbookState extends State<Dashbook> {
                               );
                             },
                           ),
+                        ],
                       ],
                     ),
                   ),
-                  if (_currentView != CurrentView.STORIES)
-                    Positioned(
-                      top: 5,
-                      left: 10,
-                      child: DashbookIcon(
-                        tooltip: 'Navigator',
-                        icon: Icons.menu,
-                        onClick: () =>
-                            setState(() => _currentView = CurrentView.STORIES),
-                      ),
-                    ),
-                  if (_currentView == CurrentView.STORIES)
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      bottom: 0,
-                      child: StoriesList(
-                        stories: widget.stories,
-                        selectedChapter: _currentChapter,
-                        onCancel: () => setState(() => _currentView = null),
-                        onSelectChapter: (chapter) {
-                          setState(() {
-                            _currentChapter = chapter;
-                            _currentView = null;
-                          });
-                        },
-                      ),
-                    ),
-                  if (_currentView == CurrentView.PROPERTIES &&
-                      _currentChapter != null)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      bottom: 0,
+                  if (showProperties)
+                    Container(
+                      // width: 400,
                       child: PropertiesContainer(
                         currentChapter: _currentChapter!,
-                        onCancel: () => setState(() => _currentView = null),
+                        onCancel: () => setState(
+                          () => toggleShowProperties(),
+                        ),
                         onPropertyChange: () {
                           setState(() {});
                         },
